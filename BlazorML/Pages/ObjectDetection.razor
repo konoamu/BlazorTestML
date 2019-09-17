@@ -1,0 +1,105 @@
+﻿@page "/Detection"
+<h3>ObjectDetection</h3>
+
+<InputFile OnChange="HandleSelection" />
+
+@if (!String.IsNullOrEmpty(base64String))
+{
+    <img src="data:image/jpeg;base64, @base64String" />
+}
+
+@code {
+    @using System.IO;
+    @using BlazorInputFile;
+    @using System.Drawing;
+    @using System.Drawing.Imaging;
+    @using OnnxObjectDetection;
+    @using BlazorML.ObjectDetection.Services;
+
+    @inject IObjectDetectionService _objectDetectionService;
+
+    string base64String = string.Empty;
+
+    async Task HandleSelection(IFileListEntry[] files)
+    {
+        var file = files.FirstOrDefault();
+        if (file != null)
+        {
+            // Just load into .NET memory to show it can be done
+            // Alternatively it could be saved to disk, or parsed in memory, or similar
+            Console.WriteLine("Got File");
+
+            var ms = new MemoryStream();
+            Console.WriteLine("Created Stream");
+
+            await file.Data.CopyToAsync(ms);
+            Console.WriteLine("Crossing the streams");
+
+            var result = GetResult(ms);
+        }
+    }
+
+    public static byte[] ReadFully(Stream input)
+    {
+        byte[] buffer = new byte[16 * 1024];
+        using (MemoryStream ms = new MemoryStream())
+        {
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                ms.Write(buffer, 0, read);
+            }
+            return ms.ToArray();
+        }
+    }
+
+    private Result GetResult(MemoryStream imageMemoryStream)
+    {
+
+        //Check that the image is valid
+        byte[] imageData = ReadFully(imageMemoryStream);
+
+        //Convert to Image
+        Image image = Image.FromStream(imageMemoryStream);
+        string fileName = string.Format("{0}.Jpeg", image.GetHashCode());
+        string imageFilePath = Path.Combine("C:/Projects/ML/BlazorML/BlazorML/tmp", fileName);
+        //save image to a path
+        image.Save(imageFilePath, ImageFormat.Jpeg);
+
+        //Convert to Bitmap
+        Bitmap bitmapImage = (Bitmap)image;
+
+
+        //Set the specific image data into the ImageInputData type used in the DataView
+        ImageInputData imageInputData = new ImageInputData { Image = bitmapImage };
+
+        //Detect the objects in the image
+        var result = DetectAndPaintImage(imageInputData, imageFilePath);
+
+        return result;
+    }
+
+    private Result DetectAndPaintImage(ImageInputData imageInputData, string imageFilePath)
+    {
+        //Predict the objects in the image
+        _objectDetectionService.DetectObjectsUsingModel(imageInputData);
+        var img = _objectDetectionService.DrawBoundingBox(imageFilePath);
+
+        using (MemoryStream m = new MemoryStream())
+        {
+            img.Save(m, img.RawFormat);
+            byte[] imageBytes = m.ToArray();
+
+            // Convert byte[] to Base64 String
+            base64String = Convert.ToBase64String(imageBytes);
+            var result = new Result { imageString = base64String };
+            Console.WriteLine(result.imageString);
+            return result;
+        }
+    }
+
+    public class Result
+    {
+        public string imageString { get; set; }
+    }
+}

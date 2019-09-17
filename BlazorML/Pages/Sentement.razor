@@ -1,0 +1,36 @@
+﻿@page "/Sentement"
+
+<h3>Sentement</h3>
+
+<textarea @bind="textInput" style="width: 100%" />
+<button @onclick="clickme">Submit</button>
+
+<div>
+    @resultScore
+</div>
+
+
+@code{
+    @using Microsoft.ML;
+    @using BlazorML.Model.DataModels;
+
+    private string textInput { get; set; } = "Happy days";
+
+    private float resultScore { get; set; }
+
+    public void clickme()
+    {
+        MLContext mlContext = new MLContext();
+        ITransformer mlModel = mlContext.Model.Load("Data/SentementModel.zip", out var modelInputSchema);
+        var predEngine = mlContext.Model.CreatePredictionEngine<SentementInput, SentementOutput>(mlModel);
+
+        // Use the code below to add input data
+        var input = new SentementInput();
+        input.SentimentText = textInput;
+        Console.WriteLine(textInput);
+
+        // Try model on sample data
+        var result = predEngine.Predict(input);
+        resultScore = result.Score;
+    }
+}

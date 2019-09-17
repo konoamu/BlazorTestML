@@ -1,0 +1,42 @@
+﻿@page "/Sentement2"
+
+<h3>Sentement 2</h3>
+
+<textarea @bind-value="TextToCheck" @bind-value:event="oninput" @onchange="PredictSentiment" cols="45" placeholder="Type any text like a short product review"></textarea>
+
+<div class="sentiment">
+    <h4>Your sentiment is...</h4>
+    <p>😡🙁😐😃😍</p>
+
+    <div class="marker">
+        <div style="left: @Value%;">
+            <div>▲</div>
+            <label>@Value.ToString("0.0")%</label>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    @using BlazorML.Model.DataModels.Sentement2;
+    @using Microsoft.Extensions.ML;
+    @inject PredictionEnginePool<SampleObservation, SamplePrediction> _predictionEnginePool
+
+    public string TextToCheck { get; set; }
+    public float Value { get; set; }
+
+    void PredictSentiment()
+    {
+        // Predict sentiment using ML.NET model
+        SampleObservation sampleData = new SampleObservation() { Col0 = TextToCheck };
+        //Predict sentiment
+        SamplePrediction prediction = _predictionEnginePool.Predict(sampleData);
+        Value = CalculatePercentage(prediction.Score);
+        Console.WriteLine(TextToCheck);
+    }
+
+    public float CalculatePercentage(double value)
+    {
+        return 100 * (1.0f / (1.0f + (float)Math.Exp(-value)));
+    }
+}
